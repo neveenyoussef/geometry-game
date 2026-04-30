@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shape Decomposition Learning Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #fff;
+    overflow-x: hidden;
+  }
+  #game-container {
+    width: 100%;
+    max-width: 1100px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 {
+    font-size: 1.8rem;
+    margin: 10px 0;
+    text-align: center;
+    color: #e94560;
+    text-shadow: 0 2px 10px rgba(233, 69, 96, 0.3);
+  }
+  #progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+    margin: 5px 0 15px;
+    overflow: hidden;
+  }
+  #progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e94560, #ff6b6b);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+  #info-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  #shape-title {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #ffd700;
+  }
+  #progress-text {
+    font-size: 0.95rem;
+    color: #aaa;
+  }
+  #timer-display {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #4ecca3;
+    min-width: 100px;
+    text-align: right;
+  }
+  #canvas-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 900px;
+    aspect-ratio: 4/3;
+    background: rgba(255,255,255,0.03);
+    border-radius: 16px;
+    border: 2px solid rgba(255,255,255,0.1);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  #controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  button {
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  }
+  button:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  #btn-decompose {
+    background: linear-gradient(135deg, #e94560, #c73e54);
+    color: white;
+  }
+  #btn-decompose:disabled {
+    background: #555;
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  #btn-compose {
+    background: linear-gradient(135deg, #4ecca3, #3ba382);
+    color: white;
+  }
+  #btn-compose:disabled {
+    background: #555;
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  #btn-next {
+    background: linear-gradient(135deg, #ffd700, #daa520);
+    color: #1a1a2e;
+  }
+  #btn-next:disabled {
+    background: #555;
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  #btn-sound {
+    background: linear-gradient(135deg, #6BCBFF, #4a9fd4);
+    color: #1a1a2e;
+    padding: 12px 16px;
+  }
+  #completion-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+  }
+  #completion-overlay.active {
+    display: flex;
+  }
+  #completion-content {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 2px solid #e94560;
+    border-radius: 20px;
+    padding: 40px;
+    text-align: center;
+    max-width: 500px;
+    width: 100%;
+    animation: slideIn 0.5s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  #completion-content h2 {
+    font-size: 2rem;
+    color: #ffd700;
+    margin-bottom: 15px;
+  }
+  #completion-content p {
+    font-size: 1.1rem;
+    color: #ccc;
+    margin-bottom: 25px;
+    line-height: 1.6;
+  }
+  #btn-play-again {
+    background: linear-gradient(135deg, #e94560, #c73e54);
+    color: white;
+    padding: 14px 36px;
+    font-size: 1.1rem;
+  }
+  .confetti {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    pointer-events: none;
+    z-index: 1001;
+  }
+  #total-area-display {
+    margin-top: 10px;
+    padding: 10px 20px;
+    background: rgba(78, 204, 163, 0.1);
+    border: 1px solid rgba(78, 204, 163, 0.3);
+    border-radius: 10px;
+    font-size: 1.05rem;
+    color: #4ecca3;
+    text-align: center;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-width: 900px;
+    width: 100%;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  #state-indicator {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 5px;
+    text-align: center;
+    min-height: 20px;
+  }
+  @media (max-width: 600px) {
+    h1 { font-size: 1.3rem; }
+    #shape-title { font-size: 1rem; }
+    button { padding: 10px 20px; font-size: 0.9rem; }
+    #canvas-wrapper { aspect-ratio: 3/4; }
+    #total-area-display { font-size: 0.85rem; padding: 8px 12px; }
+  }
+</style>
+<base target="_blank">
+<base target="_blank">
+</head>
+<body>
+<div id="game-container">
+  <h1>🔷 Shape Decomposition Learning Game</h1>
+  <div id="progress-bar"><div id="progress-fill"></div></div>
+  <div id="info-panel">
+    <div id="shape-title"></div>
+    <div id="progress-text">Shape 1 of 6</div>
+    <div id="timer-display"></div>
+  </div>
+  <div id="canvas-wrapper">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  <div id="total-area-display"></div>
+  <div id="state-indicator"></div>
+  <div id="controls">
+    <button id="btn-decompose">Decompose</button>
+    <button id="btn-compose" disabled>Compose</button>
+    <button id="btn-next">Next Shape</button>
+    <button id="btn-sound">🔊</button>
+  </div>
+</div>
+
+<div id="completion-overlay">
+  <div id="completion-content">
+    <h2>🎉 Excellent!</h2>
+    <p>Excellent! You've mastered shape decomposition!</p>
+    <div id="summary" style="margin-bottom:20px;text-align:left;"></div>
+    <button id="btn-play-again">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ==================== AUDIO ====================
+const AudioSys = {
+  ctx: null, enabled: true,
+  init() { if (!this.ctx) this.ctx = new (window.AudioContext||window.webkitAudioContext)(); },
+  playTone(f, d, t='sine', v=0.1) {
+    if (!this.enabled||!this.ctx) return;
+    try {
+      const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+      o.type=t; o.frequency.value=f;
+      g.gain.setValueAtTime(v,this.ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001,this.ctx.currentTime+d);
+      o.connect(g); g.connect(this.ctx.destination);
+      o.start(); o.stop(this.ctx.currentTime+d);
+    } catch(e){}
+  },
+  click() { this.playTone(800, 0.1, 'sine', 0.08); },
+  crack() {
+    if (!this.enabled||!this.ctx) return;
+    try {
+      const bufferSize = this.ctx.sampleRate * 0.15;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'highpass';
+      filter.frequency.value = 800;
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start();
+    } catch(e){}
+  },
+  chime() { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>this.playTone(f,0.5,'sine',0.1),i*150)); }
+};
+
+// ==================== COLORS ====================
+const C = {
+  coral:'#FF6B6B', teal:'#4ECDC4', gold:'#FFD93D', plum:'#C084FC',
+  mint:'#95E1D3', sky:'#6BCBFF', slate:'#64748B', slateB:'#475569'
+};
+
+// ==================== SHAPE DEFINITIONS ====================
+const SHAPES = [
+  {
+    name: 'Example Shape', unit: 'units',
+    parts: [
+      { type:'rectangle', color:C.coral, w:5, h:4, cx:0, cy:0, label:'Rectangle', dims:{l:5,w:4} },
+      { type:'triangle', color:C.teal, base:2, height:4, cx:-3.5, cy:0, label:'Triangle', dims:{base:2,height:4}, orient:'left' },
+      { type:'triangle', color:C.gold, base:3, height:4, cx:4, cy:0, label:'Triangle', dims:{base:3,height:4}, orient:'right' }
+    ],
+    bounds:{minX:-4.5,maxX:5.5,minY:-3,maxY:3}
+  },
+  {
+    name:'Red Group', unit:'m',
+    parts: [
+      { type:'rectangle', color:C.coral, w:4, h:6, cx:-1, cy:0, label:'Rectangle', dims:{l:4,w:6} },
+      { type:'triangle', color:C.teal, base:2, height:6, cx:2, cy:0, label:'Triangle', dims:{base:2,height:6}, orient:'right' },
+      { type:'triangle', color:C.gold, base:2, height:3, cx:-1, cy:4.5, label:'Triangle', dims:{base:2,height:3}, orient:'up' }
+    ],
+    bounds:{minX:-3,maxX:3.5,minY:-4,maxY:6.5}
+  },
+  {
+    name:'Yellow Group', unit:'m',
+    parts: [
+      { type:'rectangle', color:C.coral, w:4, h:6, cx:0, cy:1.5, label:'Rectangle', dims:{l:4,w:6} },
+      { type:'rectangle', color:C.teal, w:2, h:3, cx:-3, cy:0, label:'Rectangle', dims:{l:2,w:3} },
+      { type:'rectangle', color:C.gold, w:2, h:3, cx:3, cy:0, label:'Rectangle', dims:{l:2,w:3} }
+    ],
+    bounds:{minX:-4,maxX:4,minY:-2,maxY:5}
+  },
+  {
+    name:'Green Group', unit:'m',
+    parts: [
+      { type:'rectangle', color:C.coral, w:4, h:6, cx:0, cy:0, label:'Rectangle', dims:{l:4,w:6} },
+      { type:'triangle', color:C.teal, base:2, height:6, cx:-3, cy:0, label:'Triangle', dims:{base:2,height:6}, orient:'left' },
+      { type:'triangle', color:C.gold, base:2, height:6, cx:3, cy:0, label:'Triangle', dims:{base:2,height:6}, orient:'right' }
+    ],
+    bounds:{minX:-4,maxX:4,minY:-4,maxY:4}
+  },
+  {
+    name:'Blue Group', unit:'cm',
+    parts: [
+      { type:'rectangle', color:C.coral, w:12, h:6, cx:-4, cy:-3, label:'Rectangle', dims:{l:12,w:6} },
+      { type:'triangle', color:C.teal, base:12, height:6, cx:-4, cy:3, label:'Triangle', dims:{base:12,height:6}, orient:'up' },
+      { type:'triangle', color:C.gold, base:8, height:6, cx:6, cy:-3, label:'Triangle', dims:{base:8,height:6}, orient:'right' }
+    ],
+    bounds:{minX:-10.5,maxX:10.5,minY:-7.5,maxY:7.5}
+  },
+  {
+    name:'Purple Group', unit:'cm',
+    parts: [
+      { type:'square', color:C.coral, s:8, cx:0, cy:0, label:'Square', dims:{s:8} },
+      { type:'triangle', color:C.teal, base:8, height:3, cx:0, cy:5.5, label:'Triangle', dims:{base:8,height:3}, orient:'up' },
+      { type:'triangle', color:C.gold, base:8, height:3, cx:0, cy:-5.5, label:'Triangle', dims:{base:8,height:3}, orient:'down' },
+      { type:'triangle', color:C.plum, base:3, height:8, cx:-5.5, cy:0, label:'Triangle', dims:{base:3,height:8}, orient:'left' },
+      { type:'triangle', color:C.mint, base:3, height:8, cx:5.5, cy:0, label:'Triangle', dims:{base:3,height:8}, orient:'right' }
+    ],
+    bounds:{minX:-7.5,maxX:7.5,minY:-7.5,maxY:7.5}
+  }
+];
+
+// ==================== GAME STATE ====================
+const State = {
+  currentShape: 0,
+  isDecomposed: false,
+  animating: false,
+  animTarget: null,
+  animProgress: 0,
+  animStartTime: 0,
+  animDuration: 1500,
+  decompSpread: 2.0,
+};
+
+// ==================== CANVAS ====================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let scale = 1, offsetX = 0, offsetY = 0;
+
+function resizeCanvas() {
+  const wrapper = document.getElementById('canvas-wrapper');
+  const rect = wrapper.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  const shape = SHAPES[State.currentShape];
+  const b = shape.bounds;
+  const shapeW = b.maxX - b.minX;
+  const shapeH = b.maxY - b.minY;
+  const pad = Math.min(rect.width, rect.height) * 0.1;
+  const availW = rect.width - pad * 2;
+  const availH = rect.height - pad * 2;
+  scale = Math.min(availW / shapeW, availH / shapeH) * 0.88;
+
+  offsetX = rect.width / 2;
+  offsetY = rect.height / 2 + scale * 0.3;
+
+  requestAnimationFrame(draw);
+}
+window.addEventListener('resize', resizeCanvas);
+
+function toScreen(x, y) { return { x: offsetX + x * scale, y: offsetY - y * scale }; }
+
+function drawGrid() {
+  const rect = canvas.getBoundingClientRect();
+  const gs = Math.max(25, scale * 1.2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let x = offsetX % gs; x < rect.width; x += gs) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, rect.height); ctx.stroke();
+  }
+  for (let y = offsetY % gs; y < rect.height; y += gs) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(rect.width, y); ctx.stroke();
+  }
+}
+
+function getVerts(part) {
+  const pts = [], t = part.type, cx = part.cx, cy = part.cy;
+  if (t === 'rectangle' || t === 'square') {
+    const w = part.w || part.s, h = part.h || part.s;
+    pts.push({x:cx-w/2,y:cy-h/2},{x:cx+w/2,y:cy-h/2},{x:cx+w/2,y:cy+h/2},{x:cx-w/2,y:cy+h/2});
+  } else if (t === 'triangle') {
+    const b = part.base, h = part.height, o = part.orient || 'right';
+    if (o === 'right') pts.push({x:cx-b/2,y:cy-h/2},{x:cx-b/2,y:cy+h/2},{x:cx+b/2,y:cy});
+    else if (o === 'left') pts.push({x:cx+b/2,y:cy-h/2},{x:cx+b/2,y:cy+h/2},{x:cx-b/2,y:cy});
+    else if (o === 'up') pts.push({x:cx-b/2,y:cy-h/2},{x:cx+b/2,y:cy-h/2},{x:cx,y:cy+h/2});
+    else if (o === 'down') pts.push({x:cx-b/2,y:cy+h/2},{x:cx+b/2,y:cy+h/2},{x:cx,y:cy-h/2});
+  } else if (t === 'trapezoid') {
+    const a = part.a, b = part.b, h = part.height;
+    pts.push({x:cx-a/2,y:cy-h/2},{x:cx+a/2,y:cy-h/2},{x:cx+b/2,y:cy+h/2},{x:cx-b/2,y:cy+h/2});
+  } else if (t === 'parallelogram') {
+    const b = part.base, h = part.height, sk = part.skew || 0;
+    pts.push({x:cx-b/2+sk,y:cy-h/2},{x:cx+b/2+sk,y:cy-h/2},{x:cx+b/2-sk,y:cy+h/2},{x:cx-b/2-sk,y:cy+h/2});
+  }
+  return pts;
+}
+
+function drawPoly(pts, fill, stroke, lw) {
+  if (pts.length < 3) return;
+  ctx.beginPath();
+  const sp = toScreen(pts[0].x, pts[0].y);
+  ctx.moveTo(sp.x, sp.y);
+  for (let i = 1; i < pts.length; i++) { const p = toScreen(pts[i].x, pts[i].y); ctx.lineTo(p.x, p.y); }
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = stroke; ctx.lineWidth = lw; ctx.stroke();
+}
+
+function dimLabel(x1,y1,x2,y2,text,color,off) {
+  const p1=toScreen(x1,y1), p2=toScreen(x2,y2);
+  const dx=p2.x-p1.x, dy=p2.y-p1.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+  const nx=-dy/len*off, ny=dx/len*off;
+  const mx=(p1.x+p2.x)/2+nx, my=(p1.y+p2.y)/2+ny;
+  ctx.strokeStyle=color; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(p1.x+nx*0.3,p1.y+ny*0.3); ctx.lineTo(p2.x+nx*0.3,p2.y+ny*0.3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(p1.x+nx*0.5,p1.y+ny*0.5); ctx.lineTo(p1.x-nx*0.5,p1.y-ny*0.5); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(p2.x+nx*0.5,p2.y+ny*0.5); ctx.lineTo(p2.x-nx*0.5,p2.y-ny*0.5); ctx.stroke();
+  ctx.fillStyle=color;
+  const fs=Math.max(11,Math.min(15,scale*0.38));
+  ctx.font=`bold ${fs}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text,mx,my);
+}
+
+function heightLabel(x,y1,y2,text,color,side) {
+  const p1=toScreen(x,y1), p2=toScreen(x,y2);
+  const mx=(p1.x+p2.x)/2+(side==='right'?20:-20), my=(p1.y+p2.y)/2;
+  ctx.strokeStyle=color; ctx.lineWidth=1.2;
+  ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(p1.x,p1.y); ctx.lineTo(p2.x,p2.y); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(p1.x-4,p1.y); ctx.lineTo(p1.x+4,p1.y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(p2.x-4,p2.y); ctx.lineTo(p2.x+4,p2.y); ctx.stroke();
+  ctx.fillStyle=color;
+  const fs=Math.max(11,Math.min(15,scale*0.38));
+  ctx.font=`bold ${fs}px sans-serif`; ctx.textAlign=side==='right'?'left':'right'; ctx.textBaseline='middle';
+  ctx.fillText(text,mx,my);
+}
+
+function drawPartDims(part) {
+  const unit = SHAPES[State.currentShape].unit, color = '#FFD700', cx = part.cx, cy = part.cy;
+  if (part.type === 'rectangle' || part.type === 'square') {
+    const w = part.w || part.s, h = part.h || part.s;
+    dimLabel(cx-w/2, cy+h/2+0.4, cx+w/2, cy+h/2+0.4, `${w} ${unit}`, color, 14);
+    heightLabel(cx-w/2-0.4, cy-h/2, cy+h/2, `${h} ${unit}`, color, 'left');
+  } else if (part.type === 'triangle') {
+    const b = part.base, h = part.height, o = part.orient || 'right';
+    if (o === 'right') {
+      heightLabel(cx-b/2-0.3, cy-h/2, cy+h/2, `${h} ${unit}`, color, 'left');
+      dimLabel(cx-b/2, cy+h/2+0.4, cx+b/2, cy+h/2+0.4, `${b} ${unit}`, color, 14);
+    } else if (o === 'left') {
+      heightLabel(cx+b/2+0.3, cy-h/2, cy+h/2, `${h} ${unit}`, color, 'right');
+      dimLabel(cx-b/2, cy+h/2+0.4, cx+b/2, cy+h/2+0.4, `${b} ${unit}`, color, 14);
+    } else if (o === 'up') {
+      dimLabel(cx-b/2, cy+h/2+0.4, cx+b/2, cy+h/2+0.4, `${b} ${unit}`, color, 14);
+      heightLabel(cx, cy-h/2, cy+h/2, `${h} ${unit}`, color, 'right');
+    } else if (o === 'down') {
+      dimLabel(cx-b/2, cy-h/2-0.4, cx+b/2, cy-h/2-0.4, `${b} ${unit}`, color, 14);
+      heightLabel(cx, cy-h/2, cy+h/2, `${h} ${unit}`, color, 'right');
+    }
+  }
+}
+
+function drawPartFormulas(part, drawX, drawY) {
+  const unit = SHAPES[State.currentShape].unit;
+  let formula='', subst='', result=0;
+  if (part.type === 'rectangle') {
+    const l=part.dims.l, w=part.dims.w; result=l*w;
+    formula=`Area = l x w`; subst=`= ${l} x ${w}`;
+  } else if (part.type === 'square') {
+    const s=part.dims.s; result=s*s;
+    formula=`Area = s^2`; subst=`= ${s}^2`;
+  } else if (part.type === 'triangle') {
+    const b=part.dims.base, h=part.dims.height; result=0.5*b*h;
+    formula=`Area = 1/2 x b x h`; subst=`= 1/2 x ${b} x ${h}`;
+  } else if (part.type === 'trapezoid') {
+    const a=part.dims.a, b=part.dims.b, h=part.dims.height; result=0.5*(a+b)*h;
+    formula=`Area = 1/2 x (a + b) x h`; subst=`= 1/2 x (${a} + ${b}) x ${h}`;
+  } else if (part.type === 'parallelogram') {
+    const b=part.dims.base, h=part.dims.height; result=b*h;
+    formula=`Area = b x h`; subst=`= ${b} x ${h}`;
+  }
+  const fs = Math.max(10, Math.min(13, scale * 0.32));
+  ctx.font = `bold ${fs}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#fff'; ctx.fillText(formula, drawX, drawY);
+  ctx.fillStyle = '#ccc'; ctx.fillText(subst, drawX, drawY + fs * 1.4);
+  ctx.fillStyle = part.color; ctx.fillText(`= ${result} ${unit}^2`, drawX, drawY + fs * 2.8);
+  return { area: result, label: part.label };
+}
+
+function getDecompPos(part, progress) {
+  const spread = State.decompSpread * progress;
+  const dx = part.cx, dy = part.cy;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  if (dist < 0.1) return { cx: part.cx, cy: part.cy };
+  const angle = Math.atan2(dy, dx);
+  return {
+    cx: part.cx + Math.cos(angle) * spread,
+    cy: part.cy + Math.sin(angle) * spread
+  };
+}
+
+function drawDividingLines(shape, ease) {
+  if (ease > 0.3) return;
+  const parts = shape.parts;
+  ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 4]);
+
+  for (let i = 0; i < parts.length; i++) {
+    for (let j = i + 1; j < parts.length; j++) {
+      const p1 = parts[i], p2 = parts[j];
+      const v1 = getVerts(p1), v2 = getVerts(p2);
+      let shared = false;
+      for (let a = 0; a < v1.length && !shared; a++) {
+        for (let b = 0; b < v2.length; b++) {
+          if (Math.abs(v1[a].x - v2[b].x) < 0.01 && Math.abs(v1[a].y - v2[b].y) < 0.01) {
+            shared = true; break;
+          }
+        }
+      }
+      if (shared) {
+        for (let a = 0; a < v1.length; a++) {
+          const a2 = (a + 1) % v1.length;
+          for (let b = 0; b < v2.length; b++) {
+            const b2 = (b + 1) % v2.length;
+            const same = (Math.abs(v1[a].x - v2[b].x) < 0.01 && Math.abs(v1[a].y - v2[b].y) < 0.01 &&
+                         Math.abs(v1[a2].x - v2[b2].x) < 0.01 && Math.abs(v1[a2].y - v2[b2].y < 0.01)) ||
+                        (Math.abs(v1[a].x - v2[b2].x) < 0.01 && Math.abs(v1[a].y - v2[b2].y) < 0.01 &&
+                         Math.abs(v1[a2].x - v2[b].x) < 0.01 && Math.abs(v1[a2].y - v2[b].y) < 0.01);
+            if (same) {
+              const s1 = toScreen(v1[a].x, v1[a].y);
+              const s2 = toScreen(v1[a2].x, v1[a2].y);
+              ctx.beginPath(); ctx.moveTo(s1.x, s1.y); ctx.lineTo(s2.x, s2.y); ctx.stroke();
+            }
+          }
+        }
+      }
+    }
+  }
+  ctx.setLineDash([]);
+}
+
+function draw() {
+  const rect = canvas.getBoundingClientRect();
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  drawGrid();
+
+  const shape = SHAPES[State.currentShape];
+
+  // FIX: Use animTarget to determine animation direction, not isDecomposed
+  let prog;
+  if (!State.animating) {
+    prog = State.isDecomposed ? 1 : 0;
+  } else {
+    if (State.animTarget === 'decompose') {
+      prog = State.animProgress; // 0 -> 1 (composed -> decomposed)
+    } else {
+      prog = 1 - State.animProgress; // 1 -> 0 (decomposed -> composed)
+    }
+  }
+
+  const ease = prog < 0.5 ? 4*prog*prog*prog : 1 - Math.pow(-2*prog+2, 3)/2;
+  const areas = [];
+
+  // Calculate decomposed positions for all parts
+  const decompPositions = shape.parts.map(part => {
+    if (ease > 0) return getDecompPos(part, ease);
+    return { cx: part.cx, cy: part.cy };
+  });
+
+  // Draw shapes
+  shape.parts.forEach((part, i) => {
+    let pos = decompPositions[i];
+    const origCX = part.cx, origCY = part.cy;
+    part.cx = pos.cx; part.cy = pos.cy;
+    const pts = getVerts(part);
+    part.cx = origCX; part.cy = origCY;
+
+    if (ease > 0.01) {
+      drawPoly(pts, part.color, '#fff', 2.5);
+    } else {
+      drawPoly(pts, C.slate, C.slateB, 2);
+    }
+  });
+
+  // Draw dividing lines between parts in composed state
+  if (ease < 0.3) {
+    drawDividingLines(shape, ease);
+  }
+
+  // Draw dimensions ONLY at original (composed) positions
+  if (ease < 0.5) {
+    shape.parts.forEach(part => {
+      drawPartDims(part);
+    });
+  }
+
+  // Draw formulas below shapes when decomposed
+  if (ease > 0.5) {
+    shape.parts.forEach((part, i) => {
+      const pos = decompPositions[i];
+      const origCX = part.cx, origCY = part.cy;
+      part.cx = pos.cx; part.cy = pos.cy;
+      const verts = getVerts(part);
+      part.cx = origCX; part.cy = origCY;
+
+      // Find bottom of shape (lowest y in math coords = top of screen)
+      let bottomY = Infinity;
+      verts.forEach(v => { if (v.y < bottomY) bottomY = v.y; });
+
+      // Draw formula below the shape
+      const sp = toScreen(pos.cx, bottomY - 0.8);
+      const info = drawPartFormulas(part, sp.x, sp.y);
+      areas.push(info);
+    });
+
+    const unit = shape.unit;
+    const total = areas.reduce((s, a) => s + a.area, 0);
+    const names = areas.map(a => a.label).join(' + ');
+    const vals = areas.map(a => a.area).join(' + ');
+
+    const totalEl = document.getElementById('total-area-display');
+    totalEl.innerHTML = `<strong>Total Area</strong> = ${names} = ${vals} = <strong style="color:#ffd700;">${total} ${unit}^2</strong>`;
+    totalEl.style.opacity = Math.min(1, (ease - 0.5) * 2);
+  } else {
+    const totalEl = document.getElementById('total-area-display');
+    totalEl.innerHTML = ''; totalEl.style.opacity = 0;
+  }
+
+  const stateEl = document.getElementById('state-indicator');
+  if (!State.isDecomposed && !State.animating)
+    stateEl.textContent = 'Press "Decompose" to see the shape breakdown';
+  else if (State.isDecomposed && !State.animating)
+    stateEl.textContent = 'Press "Compose" to put the shape back together';
+  else if (State.animating)
+    stateEl.textContent = State.animTarget === 'decompose' ? 'Decomposing...' : 'Composing...';
+}
+
+// ==================== ANIMATION ====================
+function startAnim(targetDecomposed) {
+  if (State.animating) return;
+  State.animating = true;
+  State.animTarget = targetDecomposed ? 'decompose' : 'compose';
+  State.animProgress = 0;
+  State.animStartTime = performance.now();
+  updateUI(); // FIX: update buttons immediately when animation starts
+
+  function step(now) {
+    if (!State.animating) return; // FIX: cancel if interrupted
+    const elapsed = now - State.animStartTime;
+    State.animProgress = Math.min(1, elapsed / State.animDuration);
+    draw();
+    if (State.animProgress < 1) {
+      requestAnimationFrame(step);
+    } else {
+      State.animating = false;
+      State.isDecomposed = targetDecomposed;
+      State.animTarget = null;
+      updateUI();
+    }
+  }
+  requestAnimationFrame(step);
+}
+
+// ==================== UI ====================
+function updateUI() {
+  const shape = SHAPES[State.currentShape];
+  document.getElementById('shape-title').textContent = shape.name || 'Example Shape';
+  document.getElementById('progress-text').textContent = `Shape ${State.currentShape + 1} of ${SHAPES.length}`;
+  document.getElementById('progress-fill').style.width = ((State.currentShape + 1) / SHAPES.length * 100) + '%';
+
+  const decompBtn = document.getElementById('btn-decompose');
+  const compBtn = document.getElementById('btn-compose');
+  const nextBtn = document.getElementById('btn-next');
+
+  // Decompose only works when composed and not animating
+  decompBtn.disabled = State.isDecomposed || State.animating;
+  // Compose only works when decomposed and not animating
+  compBtn.disabled = !State.isDecomposed || State.animating;
+  // Next always works unless animating
+  nextBtn.disabled = State.animating;
+}
+
+// ==================== ACTIONS ====================
+function doDecompose() {
+  AudioSys.init();
+  AudioSys.crack();
+  if (!State.isDecomposed && !State.animating) {
+    startAnim(true);
+  }
+}
+
+function doCompose() {
+  AudioSys.init();
+  AudioSys.crack();
+  if (State.isDecomposed && !State.animating) {
+    startAnim(false);
+  }
+}
+
+function doNext() {
+  AudioSys.init();
+  AudioSys.click();
+  if (State.currentShape < SHAPES.length - 1) {
+    State.currentShape++;
+    State.isDecomposed = false;
+    State.animating = false;
+    resizeCanvas();
+    updateUI();
+    draw();
+  } else {
+    showCompletion();
+  }
+}
+
+function showCompletion() {
+  AudioSys.chime();
+  document.getElementById('completion-overlay').classList.add('active');
+  const summary = document.getElementById('summary');
+  let html = '<h3 style="color:#4ecca3;margin-bottom:10px;font-size:1rem;">Summary of All Shapes:</h3><ul style="list-style:none;padding:0;font-size:0.9rem;">';
+  SHAPES.forEach((s, i) => {
+    const total = s.parts.reduce((sum, p) => {
+      if (p.type === 'rectangle') return sum + p.dims.l * p.dims.w;
+      if (p.type === 'square') return sum + p.dims.s * p.dims.s;
+      if (p.type === 'triangle') return sum + 0.5 * p.dims.base * p.dims.height;
+      return sum;
+    }, 0);
+    html += `<li style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.08);">${i+1}. ${s.name || 'Example'}: <strong>${total} ${s.unit}^2</strong></li>`;
+  });
+  html += '</ul>';
+  summary.innerHTML = html;
+  launchConfetti();
+}
+
+function resetGame() {
+  State.currentShape = 0;
+  State.isDecomposed = false;
+  State.animating = false;
+  State.animTarget = null;
+  document.getElementById('completion-overlay').classList.remove('active');
+  resizeCanvas();
+  updateUI();
+  draw();
+}
+
+function launchConfetti() {
+  const colors = ['#e94560', '#4ecca3', '#ffd700', '#c084fc', '#6bcbff', '#ff6b6b'];
+  for (let i = 0; i < 100; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti';
+    el.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+    el.style.left = Math.random() * 100 + 'vw';
+    el.style.top = '-10px';
+    el.style.width = (5 + Math.random() * 8) + 'px';
+    el.style.height = (5 + Math.random() * 8) + 'px';
+    el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    document.body.appendChild(el);
+    const dur = 2000 + Math.random() * 3000;
+    const drift = (Math.random() - 0.5) * 250;
+    el.animate([
+      { transform: 'translate(0,0) rotate(0deg)', opacity: 1 },
+      { transform: `translate(${drift}px, ${window.innerHeight+30}px) rotate(${Math.random()*1000}deg)`, opacity: 0 }
+    ], { duration: dur, easing: 'cubic-bezier(0.25,0.46,0.45,0.94)' }).onfinish = () => el.remove();
+  }
+}
+
+// ==================== EVENTS ====================
+document.getElementById('btn-decompose').addEventListener('click', doDecompose);
+document.getElementById('btn-compose').addEventListener('click', doCompose);
+document.getElementById('btn-next').addEventListener('click', doNext);
+document.getElementById('btn-play-again').addEventListener('click', resetGame);
+document.getElementById('btn-sound').addEventListener('click', () => {
+  AudioSys.enabled = !AudioSys.enabled;
+  document.getElementById('btn-sound').textContent = AudioSys.enabled ? '🔊' : '🔇';
+});
+
+// ==================== INIT ====================
+setTimeout(() => { resizeCanvas(); updateUI(); draw(); }, 100);
+</script>
+</body>
+</html>
